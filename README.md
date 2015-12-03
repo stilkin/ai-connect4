@@ -1,6 +1,6 @@
 # ai-connect4
 
-Origiginal code by:
+Original code by:
 
-    @author Jim van Eeden, Starapple
-    @License MIT License (http://opensource.org/Licenses/MIT)
+  *  @author Jim van Eeden, Starapple
+  *  @License MIT License (http://opensource.org/Licenses/MIT)
