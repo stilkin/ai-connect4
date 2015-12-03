@@ -40,7 +40,7 @@ public class Field {
 	clearBoard();
     }
 
-    public boolean hasFourInARow(int player) {
+    public boolean hasFourInARow(final int player) {
 	if (hasFourHorizontal(player, 4) >= 0) {
 	    return true;
 	}
@@ -283,7 +283,7 @@ public class Field {
      * @return : String
      */
     public String toString() {
-	String r = " ";
+	String r = "";
 	int counter = 0;
 	for (int y = 0; y < mRows; y++) {
 	    for (int x = 0; x < mCols; x++) {
@@ -293,7 +293,22 @@ public class Field {
 		r += mBoard[x][y];
 		counter++;
 	    }
-	    r += '\n'; // TODO: comment?
+	}
+	return r;
+    }
+    
+    public String toPrettyString() {
+	String r = " ";
+	int counter = 0;
+	for (int y = 0; y < mRows; y++) {
+	    for (int x = 0; x < mCols; x++) {
+		if (counter > 0) {
+		    r += " ";
+		}
+		r += mBoard[x][y];
+		counter++;
+	    }
+	   r += '\n'; 
 	}
 	return r;
     }

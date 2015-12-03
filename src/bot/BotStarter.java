@@ -19,6 +19,7 @@ package bot;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
@@ -32,14 +33,18 @@ import java.util.Random;
  */
 
 public class BotStarter {
+    public static final HashMap<String, Integer> memoize = new HashMap<String, Integer>();
+    public static final int WE_WIN = 1000;
+    public static final int WE_DRAW = 100;
+    public static final int WE_LOSE = -1000;
     public static final int NONE = -999;
+    private static final int[] COL_ORDER = { 3, 4, 2, 5, 1, 6, 0 };
     public static BotParser parser;
-    private Random rand;
+    private final Random rand = new Random();
     private Field field;
 
     public void setField(Field field) {
 	this.field = field;
-	rand = new Random();
     }
 
     /**
@@ -48,101 +53,101 @@ public class BotStarter {
      * @return The column where the turn was made.
      */
     public int makeTurn() {
+	final long start = System.currentTimeMillis();
 	final int enemyId = 3 - BotParser.mBotId; // 3-2=1; 3-1=2
 
-	// see if we can win
-	for (int col = 0; col < field.getNrColumns(); col++) {
-	    if (field.isValidMove(col)) {
-		field.addDisc(col, BotParser.mBotId);
-		final boolean weHave4 = field.hasFourInARow(BotParser.mBotId);
-		field.removeDisc(col);
-		if (weHave4) { // winning throw!
-		    System.err.println("Going for winning throw in col " + col);
-		    return col; // win this!
-		}
-	    }
-	}
-
-	// see if the enemy can win in the next move
-	for (int col = 0; col < field.getNrColumns(); col++) {
-	    if (field.isValidMove(col)) {
-		field.addDisc(col, enemyId);
-		final boolean enemyHas4 = field.hasFourInARow(enemyId);
-		field.removeDisc(col);
-		if (enemyHas4) { // enemy can get four in a row!
-		    System.err.println("Blocking enemy win in col " + col);
-		    return col; // block this!
-		}
-	    }
-	}
-
-	// see if the enemy can win on top of our coin
-	final List<Integer> allowedCols = new ArrayList<Integer>();
-	for (int col = 0; col < field.getNrColumns(); col++) {
-	    if (field.isValidMove(col)) {
-		field.addDisc(col, BotParser.mBotId);
-		if (field.isValidMove(col)) {
-		    field.addDisc(col, enemyId);
-		    final boolean enemyHas4 = field.hasFourInARow(enemyId);
-		    if (!enemyHas4) {
-			allowedCols.add(col);
+	int bestVal = WE_LOSE;
+	int bestCol = COL_ORDER[0];
+	int currentVal;
+	for (int i = 0; i < COL_ORDER.length; i++) {
+	    if (field.isValidMove(COL_ORDER[i])) {
+		currentVal = getColumnValue(field.toString(), COL_ORDER[i], BotParser.mBotId, enemyId, 8);
+		if (currentVal > bestVal) { // minimize opponent value
+		    bestVal = currentVal;
+		    bestCol = COL_ORDER[i];
+		    if (bestVal == WE_WIN) {
+			break;
 		    }
-		    field.removeDisc(col);
 		}
-		field.removeDisc(col);
 	    }
-	} // TODO: expand to fill field? or will this take too long?
+	}
+	final long duration = System.currentTimeMillis() - start;
+	System.err.println("Col: " + bestCol + " in " + duration + "ms");
 
-	// if (allowedCols.size() > 0) {
-	// // return a random move of the allowed cols
-	// final int randCol = rand.nextInt(allowedCols.size());
-	// return allowedCols.get(randCol);
-	// }
-
-	// TODO: this is rubbish, change default behavior!!
-	return defaultBehavior(allowedCols);
+	return bestCol;
     }
 
     /**
-     * Default behavior is to throw as close to the middle as possible
-     * 
-     * @return The column where the coin should be dropped.
+     * Evaluates the value of throwing a coin in a column
+     * @param fieldStr current state of the field (before throwing the coin)
+     * @param column the column you want to throw in
+     * @param player the player you want to get the value for
+     * @param opponent the opponent of the player
+     * @param branch limiting factor, lower means quicker answer, but less in-depth investigation. Suggested value at least 8
+     * @return one of the constants WIN LOSE or DRAW
      */
-    private int defaultBehavior(final List<Integer> allowedCols) {
-	final int dimension = this.field.getNrColumns(); // get field width
-	final int favoriteColumn = (int) (dimension / 2); // yay for the middle column
+    private int getColumnValue(final String fieldStr, final int column, final int player, final int opponent, final int branch) {
 
-	int tryCol;
-	for (int i = 0; i < favoriteColumn + 1; i++) {
-	    tryCol = favoriteColumn + i; // walk to the right
-	    if (allowedCols.contains(tryCol)) { // valid move because it is in the list
-		System.err.println("Default throw to the right: " + tryCol);
-		return tryCol;
-	    }
-
-	    tryCol = favoriteColumn - i; // walk to the left
-	    if (allowedCols.contains(tryCol)) { // valid move because it is in the list
-		System.err.println("Default throw to the left: " + tryCol);
-		return tryCol;
-	    }
-
+	if (branch <= 0) { // limit branching for time constraint
+	    return WE_LOSE;
 	}
 
-	// if all else fails (which shouldn't happen)
-	for (int col = 0; col < field.getNrColumns(); col++) {
-	    if (this.field.isValidMove(col)) {
-		System.err.println("Error throw " + col);
-		return col;
+	final Field newField = new Field(field.getNrColumns(), field.getNrRows());
+	newField.parseFromString(fieldStr);
+	newField.addDisc(column, player);
+	// System.err.println(localField.toPrettyString());
+
+	// use memorization to quicken the pace
+	final String newFieldString = newField.toString();
+	final Integer rememberedAnswer = memoize.get(newFieldString);
+	if (rememberedAnswer != null) {
+	    return rememberedAnswer;
+	}
+
+	if (newField.hasFourInARow(player)) {
+	    memoize.put(newFieldString, WE_WIN);
+	    return WE_WIN;
+	} else if (newField.hasFourInARow(opponent)) {
+	    memoize.put(newFieldString, WE_LOSE);
+	    return WE_LOSE;
+	} else if (newField.isFull()) {
+	    memoize.put(newFieldString, WE_DRAW);
+	    return WE_DRAW;
+	}
+
+	int enemyVal = WE_WIN;
+	int currentVal;
+	for (int i = 0; i < COL_ORDER.length; i++) {
+	    if (newField.isValidMove(COL_ORDER[i])) {
+		// opponents move
+		currentVal = getColumnValue(newFieldString, COL_ORDER[i], opponent, player, branch - 1);
+		if (currentVal < enemyVal) { // minimize opponent value
+		    enemyVal = currentVal;
+		    if (enemyVal == WE_LOSE) {
+			break;
+		    }
+		}
 	    }
 	}
-	System.err.println("Serious problems " + Integer.MIN_VALUE);
-	return Integer.MIN_VALUE; // because we can *cough*
+
+	if (enemyVal == WE_LOSE) {
+	    memoize.put(newFieldString, WE_WIN);
+	    return WE_WIN; // opponent loss
+	} else if (enemyVal == WE_WIN) {
+	    memoize.put(newFieldString, WE_LOSE);
+	    return WE_LOSE; // opponent win
+	} else {
+	    memoize.put(newFieldString, WE_DRAW);
+	    return WE_DRAW;
+	}
     }
+
 
     /**
      * MAIN METHOD
      */
     public static void main(String[] args) {
+	// Testing code for new field methods
 	// final Field f = new Field(7, 6);
 	//
 	// f.addDisc(1, 1);
