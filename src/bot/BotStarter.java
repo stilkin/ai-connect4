@@ -29,7 +29,9 @@ import java.util.HashMap;
  */
 
 public class BotStarter {
-    public static final HashMap<String, Integer> memoize = new HashMap<String, Integer>();
+    public static final HashMap<String, Integer> gameMemory = new HashMap<String, Integer>();
+    public static final HashMap<String, Integer> roundMemory = new HashMap<String, Integer>();
+
     public static final int WINNING = 1000;
     public static final int WE_DRAW = 0;
     public static final int LOSING = -1000;
@@ -49,23 +51,23 @@ public class BotStarter {
     public int makeTurn() {
 	final long start = System.currentTimeMillis();
 	final int enemyId = 3 - BotParser.mBotId; // 3-2=1; 3-1=2
-	memoize.clear(); // let me refresh my memory
+	roundMemory.clear(); // let me refresh my memory
 
 	int bestVal = LOSING;
-	int bestCol = 0;
+	int bestCol = -1;
 	int currentVal;
 	for (int i = 0; i < COL_ORDER.length; i++) {
 	    if (field.isValidMove(COL_ORDER[i])) {
 		currentVal = getColumnValue(field.toString(), COL_ORDER[i], BotParser.mBotId, enemyId, 8);
 		System.err.println(COL_ORDER[i] + " " + currentVal);
-		if (currentVal > bestVal) { // minimize opponent value
+		if (currentVal >= bestVal) { // minimize opponent value
 		    bestVal = currentVal;
 		    bestCol = COL_ORDER[i];
 		    if (bestVal == WINNING) {
 			break;
 		    } else if (bestVal == WE_DRAW) {
 			final long duration = System.currentTimeMillis() - start;
-			if (duration > 499l) {
+			if (duration > 738l) {
 			    System.err.println("This is taking too long...");
 			    break;
 			}
@@ -75,7 +77,7 @@ public class BotStarter {
 	    }
 	}
 	final long duration = System.currentTimeMillis() - start;
-	System.err.println("Col: " + bestCol + " in " + duration + "ms for outcome " + bestVal);
+	System.err.println("Decided on: " + bestCol + " in " + duration + "ms for outcome " + bestVal);
 
 	return bestCol;
     }
@@ -106,22 +108,27 @@ public class BotStarter {
 	newField.addDisc(column, player); // add my coin
 	// System.err.println(newField.toPrettyString()); // uncomment for debug
 
-	// use memorization to quicken the pace
+	
 	final String newFieldString = newField.toString();
-	final Integer rememberedAnswer = memoize.get(newFieldString);
-	if (rememberedAnswer != null) {
-	    return rememberedAnswer;
+	// use memorization to quicken the pace
+	final Integer gameCacheAnswer = gameMemory.get(newFieldString);
+	if (gameCacheAnswer != null) {
+	    return gameCacheAnswer;
+	}
+	final Integer roundCacheAnswer = roundMemory.get(newFieldString);
+	if (roundCacheAnswer != null) {
+	    return roundCacheAnswer;
 	}
 
 	// easy outcomes
 	if (newField.hasFourInARow(player)) {
-	    memoize.put(newFieldString, WINNING);
+	    gameMemory.put(newFieldString, WINNING);
 	    return WINNING;
 	} else if (newField.hasFourInARow(opponent)) {
-	    memoize.put(newFieldString, LOSING);
+	    gameMemory.put(newFieldString, LOSING);
 	    return LOSING;
 	} else if (newField.isFull()) {
-	    memoize.put(newFieldString, WE_DRAW);
+	    gameMemory.put(newFieldString, WE_DRAW);
 	    return WE_DRAW;
 	}
 
@@ -141,7 +148,7 @@ public class BotStarter {
 	}
 
 	final int ourValue = -enemyVal; // our goal is opposed to that of the opponent
-	memoize.put(newFieldString, ourValue);
+	roundMemory.put(newFieldString, ourValue);
 	return ourValue;
     }
 
