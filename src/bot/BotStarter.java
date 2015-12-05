@@ -17,6 +17,7 @@
 
 package bot;
 
+import java.util.Arrays;
 import java.util.HashMap;
 
 /**
@@ -31,10 +32,11 @@ import java.util.HashMap;
 public class BotStarter {
     public static final HashMap<String, Integer> gameMemory = new HashMap<String, Integer>();
 
-    public static final int WINNING = 1000;
+    public static final int MAX_BRANCH = 7; // keep under 8 to prevent timeouts
+    public static final int WINNING = 10;
     public static final int WE_DRAW = 0;
-    public static final int LOSING = -1000;
-    private static final int[] COL_ORDER = { 3, 4, 2, 5, 1, 6, 0 };// { 0, 6, 1, 5, 2, 4, 3 };
+    public static final int LOSING = -10;
+    private static final int[] COL_ORDER = { 3, 4, 2, 5, 1, 6, 0 }; // { 0, 6, 1, 5, 2, 4, 3 };
     public static BotParser parser;
     private Field field;
     private long roundStart;
@@ -50,40 +52,49 @@ public class BotStarter {
      */
     public int makeTurn() {
 	roundStart = System.currentTimeMillis();
-	final int enemyId = 3 - BotParser.mBotId; // 3-2=1; 3-1=2
-	final int timeBank = BotParser.timeLeft;
+	System.err.println("Round " + BotParser.round);
 
-	int bestVal = LOSING;
+	final int enemyId = 3 - BotParser.myBotId; // 3-2=1; 3-1=2
+//	final int timeBank = BotParser.timeLeft;
+
+	int[] values = new int[COL_ORDER.length];
+	Arrays.fill(values, Integer.MIN_VALUE);
+
+	for (int idx = 0; idx < values.length; idx++) {
+	    if (field.isValidMove(idx)) {
+		final int currentVal = getColumnValue(field.toString(), idx, BotParser.myBotId, enemyId, MAX_BRANCH);
+		values[idx] = currentVal;
+
+		final long duration = System.currentTimeMillis() - roundStart;
+		System.err.println(idx + " " + currentVal + " at " + duration + "ms");
+	    }
+	}
+
+	int bestVal = Integer.MIN_VALUE;
 	int bestCol = -1;
-	int currentVal;
+
+	// this convoluted piece of code is to make sure we pick the SHORTEST path to the goal
 	for (int i = 0; i < COL_ORDER.length; i++) {
-	    if (field.isValidMove(COL_ORDER[i])) {
-		currentVal = getColumnValue(field.toString(), COL_ORDER[i], BotParser.mBotId, enemyId, 9);
-		System.err.println(COL_ORDER[i] + " " + currentVal);
-		if (currentVal >= bestVal) { // minimize opponent value
-		    bestVal = currentVal;
-		    bestCol = COL_ORDER[i];
-		    if (bestVal == WINNING) {
-			break;
-		    } else if (bestVal == WE_DRAW) {
-			final long duration = System.currentTimeMillis() - roundStart;
-			if (duration > timeBank / 2) {
-			    System.err.println("This is taking too long...");
-			    break;
-			}
+	    final int idx = COL_ORDER[i];
+	    if (values[idx] > WE_DRAW) { // we can win this game
+		if (bestVal <= WE_DRAW) {// first winning solution
+		    bestVal = values[idx]; // just assign it
+		    bestCol = idx;
+		} else { // we are checking between winning solutions
+		    // lower winning numbers are lower in the branching tree
+		    if (values[idx] < bestVal) {
+			bestVal = values[idx];
+			bestCol = idx;
 		    }
 		}
-
-	    }
-	    final long duration = System.currentTimeMillis() - roundStart;
-	    // System.err.println("Currently " + duration + " ms");
-	    if (bestVal == WE_DRAW) {
-		if (duration > timeBank / 2) {
-		    System.err.println("This is taking too long...");
-		    break;
+	    } else { // draw or loss
+		if (values[idx] > bestVal) { // try and get better
+		    bestVal = values[idx];
+		    bestCol = idx;
 		}
 	    }
 	}
+
 	final long duration = System.currentTimeMillis() - roundStart;
 	System.err.println("Decided on: " + bestCol + " in " + duration + "ms for outcome " + bestVal);
 
@@ -106,7 +117,7 @@ public class BotStarter {
      * @return one of the constants WIN LOSE or DRAW
      */
     private int getColumnValue(final String fieldStr, final int column, final int player, final int opponent, final int branch) {
-	// TODO: limit based on time as well
+	// TODO: limit based on time as well?
 	if (branch <= 0) { // limit branching for time constraint
 	    return LOSING; // assume worst case?
 	}
@@ -120,40 +131,37 @@ public class BotStarter {
 	// use memorization to quicken the pace
 	final Integer gameCacheAnswer = gameMemory.get(newFieldString);
 	if (gameCacheAnswer != null) {
-	    return gameCacheAnswer;
+	    return (gameCacheAnswer * branch);
 	}
 
 	// easy outcomes
 	if (newField.hasFourInARow(player)) {
-	    // System.err.println(newField.toPrettyString());
 	    gameMemory.put(newFieldString, WINNING);
-	    return WINNING;
+	    return (WINNING * branch);
 	} else if (newField.hasFourInARow(opponent)) {
-	    // System.err.println(newField.toPrettyString());
 	    gameMemory.put(newFieldString, LOSING);
-	    return LOSING;
+	    return (LOSING * branch);
 	} else if (newField.isFull()) {
-	    // System.err.println(newField.toPrettyString());
-	    gameMemory.put(newFieldString, WE_DRAW);
 	    return WE_DRAW;
 	}
 
 	// guess what opponent will do during his move
-	int bestEnemyVal = LOSING;
+	int bestEnemyVal = Integer.MIN_VALUE;
 	int currentEnemyVal;
 	for (int i = 0; i < COL_ORDER.length; i++) {
-	    if (newField.isValidMove(COL_ORDER[i])) {
-		currentEnemyVal = getColumnValue(newFieldString, COL_ORDER[i], opponent, player, branch - 1);
+	    final int idx = COL_ORDER[i];
+	    if (newField.isValidMove(idx)) {
+		currentEnemyVal = getColumnValue(newFieldString, idx, opponent, player, branch - 1);
 		if (currentEnemyVal > bestEnemyVal) { // maximize opponent value
 		    bestEnemyVal = currentEnemyVal;
-		    if (bestEnemyVal == WINNING) {
-			break;
+		    if (bestEnemyVal >= WINNING) {
+			break; // small optimization
 		    }
 		}
 	    }
 	}
 
-	final int ourValue = -bestEnemyVal; // our goal is opposed to that of the opponent
+	final int ourValue = -bestEnemyVal * branch; // our goal is opposed to that of the opponent
 	return ourValue;
     }
 

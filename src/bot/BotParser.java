@@ -33,8 +33,9 @@ public class BotParser {
     final BotStarter bot;
 
     private Field mField;
-    public static int mBotId = 0;
+    public static int myBotId = 0;
     public static int timeLeft = 0;
+    public static int round = 0;
 
     public BotParser(BotStarter bot) {
 	this.scan = new Scanner(System.in);
@@ -62,12 +63,14 @@ public class BotParser {
 		    mField.setRows(Integer.parseInt(parts[2]));
 		}
 		if (parts[1].equals("your_botid")) {
-		    mBotId = Integer.parseInt(parts[2]);
+		    myBotId = Integer.parseInt(parts[2]);
 		}
 	    } else if (parts[0].equals("update")) { /* new field data */
 		if (parts[2].equals("field")) {
 		    final String data = parts[3];
 		    mField.parseFromString(data); /* Parse Field with data */
+		} else if (parts[2].equals("round")) {
+		    round = Integer.parseInt(parts[3]);
 		}
 	    } else if (parts[0].equals("action")) {
 		if (parts[1].equals("move")) { /* move requested */
