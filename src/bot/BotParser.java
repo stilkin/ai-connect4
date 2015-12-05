@@ -34,6 +34,7 @@ public class BotParser {
 
     private Field mField;
     public static int mBotId = 0;
+    public static int timeLeft = 0;
 
     public BotParser(BotStarter bot) {
 	this.scan = new Scanner(System.in);
@@ -70,6 +71,7 @@ public class BotParser {
 		}
 	    } else if (parts[0].equals("action")) {
 		if (parts[1].equals("move")) { /* move requested */
+		    timeLeft = Integer.parseInt(parts[2]);
 		    final int column = bot.makeTurn();
 		    System.out.println("place_disc " + column);
 		}

@@ -35,10 +35,10 @@ public class BotStarter {
     public static final int WINNING = 1000;
     public static final int WE_DRAW = 0;
     public static final int LOSING = -1000;
-    private static final int[] COL_ORDER = { 3, 4, 2, 5, 1, 6, 0 };
+    private static final int[] COL_ORDER = { 0, 6, 1, 5, 2, 4, 3 };
     public static BotParser parser;
     private Field field;
-    private int timeBank = 9000;
+    private long roundStart;
 
     public void setField(Field field) {
 	this.field = field;
@@ -50,47 +50,44 @@ public class BotStarter {
      * @return The column where the turn was made.
      */
     public int makeTurn() {
-	final long start = System.currentTimeMillis();
+	roundStart = System.currentTimeMillis();
 	final int enemyId = 3 - BotParser.mBotId; // 3-2=1; 3-1=2
-	// roundMemory.clear(); // let me refresh my memory
-	timeBank += 450;
+	roundMemory.clear(); // let me refresh my memory
+	final int timeBank = BotParser.timeLeft;
 
 	int bestVal = LOSING;
 	int bestCol = -1;
 	int currentVal;
-	for (int d = 1; d < 16; d++) {
-	    System.err.println("Looking at depth " + (d * 2));
-	    for (int i = 0; i < COL_ORDER.length; i++) {
-		if (field.isValidMove(COL_ORDER[i])) {
-		    currentVal = getColumnValue(field.toString(), COL_ORDER[i], BotParser.mBotId, enemyId, (d * 2));
-		    System.err.println(COL_ORDER[i] + " " + currentVal);
-		    if (currentVal >= bestVal) { // minimize opponent value
-			bestVal = currentVal;
-			bestCol = COL_ORDER[i];
-			if (bestVal == WINNING) {
+	for (int i = 0; i < COL_ORDER.length; i++) {
+	    if (field.isValidMove(COL_ORDER[i])) {
+		currentVal = getColumnValue(field.toString(), COL_ORDER[i], BotParser.mBotId, enemyId, 6);
+		System.err.println(COL_ORDER[i] + " " + currentVal);
+		if (currentVal >= bestVal) { // minimize opponent value
+		    bestVal = currentVal;
+		    bestCol = COL_ORDER[i];
+		    if (bestVal == WINNING) {
+			break;
+		    } else if (bestVal == WE_DRAW) {
+			final long duration = System.currentTimeMillis() - roundStart;
+			if (duration > timeBank / 2) {
+			    System.err.println("This is taking too long...");
 			    break;
-			} else if (bestVal == WE_DRAW) {
-			    final long duration = System.currentTimeMillis() - start;
-			    if (duration > timeBank / 3) {
-				System.err.println("This is taking too long...");
-				break;
-			    }
 			}
 		    }
 		}
+
 	    }
-	    final long duration = System.currentTimeMillis() - start;
-	    System.err.println("Currently " + duration + " ms");
+	    final long duration = System.currentTimeMillis() - roundStart;
+	    // System.err.println("Currently " + duration + " ms");
 	    if (bestVal == WE_DRAW) {
-		if (duration > timeBank / 3) {
+		if (duration > timeBank / 2) {
 		    System.err.println("This is taking too long...");
 		    break;
 		}
 	    }
 	}
-	final long duration = System.currentTimeMillis() - start;
+	final long duration = System.currentTimeMillis() - roundStart;
 	System.err.println("Decided on: " + bestCol + " in " + duration + "ms for outcome " + bestVal);
-	timeBank -= duration;
 
 	return bestCol;
     }
@@ -111,7 +108,7 @@ public class BotStarter {
      * @return one of the constants WIN LOSE or DRAW
      */
     private int getColumnValue(final String fieldStr, final int column, final int player, final int opponent, final int branch) {
-
+	// TODO: limit based on time as well
 	if (branch <= 0) { // limit branching for time constraint
 	    return WE_DRAW;
 	}
@@ -160,7 +157,7 @@ public class BotStarter {
 	}
 
 	final int ourValue = -enemyVal; // our goal is opposed to that of the opponent
-	// roundMemory.put(newFieldString, ourValue);
+	//roundMemory.put(newFieldString, ourValue);
 	return ourValue;
     }
 
