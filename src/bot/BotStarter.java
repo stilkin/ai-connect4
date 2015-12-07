@@ -31,8 +31,9 @@ import java.util.HashMap;
 
 public class BotStarter {
     public static final HashMap<String, Integer> gameMemory = new HashMap<String, Integer>();
+    public static final HashMap<String, Integer> roundMemory = new HashMap<String, Integer>();
 
-    public static final int MAX_BRANCH = 7; // keep under 8 to prevent timeouts
+    public static final int MAX_BRANCH = 6; // keep under 8 to prevent timeouts
     public static final int WINNING = 10;
     public static final int WE_DRAW = 0;
     public static final int LOSING = -10;
@@ -53,9 +54,10 @@ public class BotStarter {
     public int makeTurn() {
 	roundStart = System.currentTimeMillis();
 	System.err.println("Round " + BotParser.round);
+	roundMemory.clear();
 
 	final int enemyId = 3 - BotParser.myBotId; // 3-2=1; 3-1=2
-//	final int timeBank = BotParser.timeLeft;
+	// final int timeBank = BotParser.timeLeft;
 
 	int[] values = new int[COL_ORDER.length];
 	Arrays.fill(values, Integer.MIN_VALUE);
@@ -119,7 +121,7 @@ public class BotStarter {
     private int getColumnValue(final String fieldStr, final int column, final int player, final int opponent, final int branch) {
 	// TODO: limit based on time as well?
 	if (branch <= 0) { // limit branching for time constraint
-	    return LOSING; // assume worst case?
+	    return WE_DRAW;
 	}
 
 	final Field newField = new Field(field.getNrColumns(), field.getNrRows());
@@ -128,6 +130,11 @@ public class BotStarter {
 	final String newFieldString = newField.toString();
 	// System.err.println(newField.toPrettyString()); // uncomment for debug
 
+	// use memorization to quicken the pace
+	final Integer roundCacheAnswer = roundMemory.get(newFieldString);
+	if (roundCacheAnswer != null) {
+	    return (roundCacheAnswer * branch);
+	}
 	// use memorization to quicken the pace
 	final Integer gameCacheAnswer = gameMemory.get(newFieldString);
 	if (gameCacheAnswer != null) {
@@ -142,6 +149,7 @@ public class BotStarter {
 	    gameMemory.put(newFieldString, LOSING);
 	    return (LOSING * branch);
 	} else if (newField.isFull()) {
+	    gameMemory.put(newFieldString, WE_DRAW);
 	    return WE_DRAW;
 	}
 
@@ -161,8 +169,9 @@ public class BotStarter {
 	    }
 	}
 
-	final int ourValue = -bestEnemyVal * branch; // our goal is opposed to that of the opponent
-	return ourValue;
+	final int ourValue = -bestEnemyVal; // our goal is opposed to that of the opponent
+	roundMemory.put(newFieldString, ourValue);
+	return ourValue * branch;
     }
 
     /**
