@@ -54,6 +54,7 @@ public class BotStarter {
     public int makeTurn() {
 	roundStart = System.currentTimeMillis();
 	System.err.println("Round " + BotParser.round);
+	System.err.println(field.toPrettyString());
 	roundMemory.clear();
 
 	final int enemyId = 3 - BotParser.myBotId; // 3-2=1; 3-1=2
@@ -78,18 +79,13 @@ public class BotStarter {
 	// this convoluted piece of code is to make sure we pick the SHORTEST path to the goal
 	for (int i = 0; i < COL_ORDER.length; i++) {
 	    final int idx = COL_ORDER[i];
-	    if (values[idx] > WE_DRAW) { // we can win this game
-		if (bestVal <= WE_DRAW) {// first winning solution
-		    bestVal = values[idx]; // just assign it
-		    bestCol = idx;
-		} else { // we are checking between winning solutions
-		    // lower winning numbers are lower in the branching tree
-		    if (values[idx] < bestVal) {
-			bestVal = values[idx];
-			bestCol = idx;
-		    }
+	    if (field.isValidMove(idx)) {
+		if (values[idx] > 0) {
+		    values[idx] = Integer.MAX_VALUE - values[idx]; // flip the order
+		} else if (values[idx] < 0) {
+		    values[idx] = Integer.MIN_VALUE - values[idx]; // flip the order
 		}
-	    } else { // draw or loss
+
 		if (values[idx] > bestVal) { // try and get better
 		    bestVal = values[idx];
 		    bestCol = idx;
