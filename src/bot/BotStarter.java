@@ -99,7 +99,7 @@ public class BotStarter {
 		    }
 		    break; // game ends here
 		} else {
-		    values[idx] = WE_DRAW + depth; // no imminent loss here
+		    values[idx] = WE_DRAW; // no imminent loss here
 		}
 
 		player = 3 - player;
@@ -108,6 +108,32 @@ public class BotStarter {
 	    final long duration = System.currentTimeMillis() - roundStart;
 	    System.err.println(idx + " " + values[idx] + " at " + duration + "ms");
 	}
+	System.err.println("~");
+
+	// specify some of those pesky draws
+	for (int idx1 = 0; idx1 < COLS; idx1++) {
+	    if (field.isValidMove(idx1) && values[idx1] == WE_DRAW) { // check all draw fields
+		field.addDisc(idx1, enemyId);
+		for (int idx2 = 0; idx2 < COLS; idx2++) {
+		    if (field.isValidMove(idx2) && values[idx2] >= WE_DRAW) { // against our possible moves
+			field.addDisc(idx2, enemyId);
+			if (field.hasFourInARow(enemyId)) { // future enemy win
+			    if(values[idx1] == WE_DRAW) {
+				values[idx1] = WINNING; // all eyes on this one
+			    }
+			    values[idx1]++; // prevent & prevail
+			}
+			field.removeDisc(idx2);
+		    }
+		}
+		field.removeDisc(idx1);
+
+		final long duration = System.currentTimeMillis() - roundStart;
+		System.err.println(idx1 + " " + values[idx1] + " at " + duration + "ms");
+	    }
+
+	}
+	field.resetToInitialRoundState();
 
 	int bestVal = Integer.MIN_VALUE;
 	int bestCol = -1;
