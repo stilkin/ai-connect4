@@ -87,7 +87,6 @@ public class BotStarter {
 	for (int idx = 0; idx < COLS; idx++) {
 	    player = BotParser.myBotId;
 	    depth = 0;
-	    field.resetToInitialRoundState();
 	    while (field.isValidMove(idx)) {
 		depth++;
 		field.addDisc(idx, player);
@@ -105,6 +104,7 @@ public class BotStarter {
 
 		player = 3 - player;
 	    }
+	    field.resetToInitialRoundState();
 	    final long duration = System.currentTimeMillis() - roundStart;
 	    System.err.println(idx + " " + values[idx] + " at " + duration + "ms");
 	}
