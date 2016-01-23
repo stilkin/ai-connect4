@@ -12,7 +12,7 @@ public class Rating {
     }
 
     public long getValue() {
-	final long val = (4 * wins) - (4 * losses) /* + draws */;
+	final long val = (4 * wins) - (4 * losses)  + draws ;
 	return val;
     }
 

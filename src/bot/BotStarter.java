@@ -94,11 +94,26 @@ public class BotStarter {
 	System.err.println("Played " + count + " times in " + timeSpent + "ms");
 	int bestCol = 0;
 	long bestVal = 0;
+	int countNeg = 0;
 	for (int x = 0; x < FiarField.COLS; x++) {
 	    System.err.println(x + " " + colRatings[x].getValue());
 	    if (colRatings[x].getValue() > bestVal) {
 		bestVal = colRatings[x].getValue();
 		bestCol = x;
+	    }
+	    if (colRatings[x].getValue() < 0) {
+		countNeg++;
+	    }
+	}
+
+	if (countNeg >= FiarField.COLS) { // only negative values are available
+	    bestVal = Long.MAX_VALUE;
+	    System.err.println("Getting pretty dark here...");
+	    for (int x = 0; x < FiarField.COLS; x++) {
+		if (Math.abs(colRatings[x].getValue()) < bestVal) { // choose the least negative one
+		    bestVal = Math.abs(colRatings[x].getValue());
+		    bestCol = x;
+		}
 	    }
 	}
 
