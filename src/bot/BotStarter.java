@@ -17,30 +17,29 @@
 
 package bot;
 
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Random;
 
 /**
  * BotStarter class
  * 
- * Magic happens here. You should edit this file, or more specifically the makeTurn() method to make your bot do more than random moves.
+ * Monte Carlo simulation of 4 in a row. Tip of the hat to PrimaBot!
  * 
  * @author Jim van Eeden <jim@starapple.nl>, Joost de Meij <joost@starapple.nl>
  * @author Servaas Tilkin ( edits and patches)
  */
 
 public class BotStarter {
-    public static final HashMap<String, Integer> gameMemory = new HashMap<String, Integer>();
-    public static final HashMap<String, Integer> roundMemory = new HashMap<String, Integer>();
-
-    public static final int MAX_BRANCH = 6; // keep under 8 to prevent timeouts
-    public static final int WINNING = 10;
-    public static final int WE_DRAW = 0;
-    public static final int LOSING = -10;
-    private static final int[] COL_ORDER = { 3, 4, 2, 5, 1, 6, 0 }; // { 0, 6, 1, 5, 2, 4, 3 };
-    public static BotParser parser;
+    private static BotParser parser;
+    public final Random rand = new Random();
+    public final Rating[] colRatings = new Rating[FiarField.COLS];
+    public final int MAX_BRANCH = 10; // keep under 8 to prevent timeouts
     private Field field;
-    private long roundStart;
+
+    public BotStarter() {
+	for (int x = 0; x < colRatings.length; x++) {
+	    colRatings[x] = new Rating();
+	}
+    }
 
     public void setField(Field field) {
 	this.field = field;
@@ -52,122 +51,81 @@ public class BotStarter {
      * @return The column where the turn was made.
      */
     public int makeTurn() {
-	roundStart = System.currentTimeMillis();
-	System.err.println("Round " + BotParser.round);
-	System.err.println(field.toPrettyString());
-	roundMemory.clear();
+	final FiarField fiarField = new FiarField();
 
-	final int enemyId = 3 - BotParser.myBotId; // 3-2=1; 3-1=2
-	// final int timeBank = BotParser.timeLeft;
-
-	int[] values = new int[COL_ORDER.length];
-	Arrays.fill(values, Integer.MIN_VALUE);
-
-	for (int idx = 0; idx < values.length; idx++) {
-	    if (field.isValidMove(idx)) {
-		final int currentVal = getColumnValue(field.toString(), idx, BotParser.myBotId, enemyId, MAX_BRANCH);
-		values[idx] = currentVal;
-
-		final long duration = System.currentTimeMillis() - roundStart;
-		System.err.println(idx + " " + currentVal + " at " + duration + "ms");
-	    }
-	}
-
-	int bestVal = Integer.MIN_VALUE;
-	int bestCol = -1;
-
-	// this convoluted piece of code is to make sure we pick the SHORTEST path to the goal
-	for (int i = 0; i < COL_ORDER.length; i++) {
-	    final int idx = COL_ORDER[i];
-	    if (field.isValidMove(idx)) {
-		if (values[idx] > 0) {
-		    values[idx] = Integer.MAX_VALUE - values[idx]; // flip the order
-		} else if (values[idx] < 0) {
-		    values[idx] = Integer.MIN_VALUE - values[idx]; // flip the order
-		}
-
-		if (values[idx] > bestVal) { // try and get better
-		    bestVal = values[idx];
-		    bestCol = idx;
+	// copy to our own data structure
+	for (int y = FiarField.ROWS - 1; y >= 0; y--) {
+	    for (int x = 0; x < FiarField.COLS; x++) {
+		int disc = field.getDisc(x, y);
+		if (disc != 0) {
+		    fiarField.addDisc(x, disc);
 		}
 	    }
 	}
+	System.err.println(fiarField);
 
-	final long duration = System.currentTimeMillis() - roundStart;
-	System.err.println("Decided on: " + bestCol + " in " + duration + "ms for outcome " + bestVal);
+	for (int x = 0; x < FiarField.COLS; x++) {
+	    colRatings[x].reset();
+	}
+
+	int result;
+	FiarField tmpField = new FiarField();
+	final long start = System.currentTimeMillis();
+	long timeSpent = 0;
+	long count = 0;
+
+	while (timeSpent < 500) {
+	    for (int x = 0; x < FiarField.COLS; x++) {
+		tmpField.init(fiarField.getCells());
+		tmpField.addDisc(x, BotParser.myBotId);
+		result = playGame(tmpField, BotParser.myBotId, MAX_BRANCH);
+		if (result == BotParser.myBotId) {
+		    colRatings[x].wins++;
+		} else if (result == -1) {
+		    colRatings[x].draws++;
+		} else {
+		    colRatings[x].losses++;
+		}
+	    }
+	    count++;
+	    timeSpent = System.currentTimeMillis() - start;
+	}
+
+	System.err.println("Played " + count + " times in " + timeSpent + "ms");
+	int bestCol = 0;
+	long bestVal = 0;
+	for (int x = 0; x < FiarField.COLS; x++) {
+	    System.err.println(x + " " + colRatings[x].getValue());
+	    if (colRatings[x].getValue() > bestVal) {
+		bestVal = colRatings[x].getValue();
+		bestCol = x;
+	    }
+	}
 
 	return bestCol;
     }
 
-    /**
-     * Evaluates the value of throwing a coin in a column
-     * 
-     * @param fieldStr
-     *            current state of the field (before throwing the coin)
-     * @param column
-     *            the column you want to throw in
-     * @param player
-     *            the player you want to get the value for
-     * @param opponent
-     *            the opponent of the player
-     * @param branch
-     *            limiting factor, lower means quicker answer, but less in-depth investigation. Suggested value at least 8
-     * @return one of the constants WIN LOSE or DRAW
-     */
-    private int getColumnValue(final String fieldStr, final int column, final int player, final int opponent, final int branch) {
-	// TODO: limit based on time as well?
-	if (branch <= 0) { // limit branching for time constraint
-	    return WE_DRAW;
+    private int playGame(final FiarField field, final int player, final int barrier) {
+	int currentPlayer = player;
+	if (field.hasWon()) {
+	    return currentPlayer;
 	}
 
-	final Field newField = new Field(field.getNrColumns(), field.getNrRows());
-	newField.parseFromString(fieldStr);
-	newField.addDisc(column, player); // add my coin
-	final String newFieldString = newField.toString();
-	// System.err.println(newField.toPrettyString()); // uncomment for debug
-
-	// use memorization to quicken the pace
-	final Integer roundCacheAnswer = roundMemory.get(newFieldString);
-	if (roundCacheAnswer != null) {
-	    return (roundCacheAnswer * branch);
-	}
-	// use memorization to quicken the pace
-	final Integer gameCacheAnswer = gameMemory.get(newFieldString);
-	if (gameCacheAnswer != null) {
-	    return (gameCacheAnswer * branch);
-	}
-
-	// easy outcomes
-	if (newField.hasFourInARow(player)) {
-	    gameMemory.put(newFieldString, WINNING);
-	    return (WINNING * branch);
-	} else if (newField.hasFourInARow(opponent)) {
-	    gameMemory.put(newFieldString, LOSING);
-	    return (LOSING * branch);
-	} else if (newField.isFull()) {
-	    gameMemory.put(newFieldString, WE_DRAW);
-	    return WE_DRAW;
-	}
-
-	// guess what opponent will do during his move
-	int bestEnemyVal = Integer.MIN_VALUE;
-	int currentEnemyVal;
-	for (int i = 0; i < COL_ORDER.length; i++) {
-	    final int idx = COL_ORDER[i];
-	    if (newField.isValidMove(idx)) {
-		currentEnemyVal = getColumnValue(newFieldString, idx, opponent, player, branch - 1);
-		if (currentEnemyVal > bestEnemyVal) { // maximize opponent value
-		    bestEnemyVal = currentEnemyVal;
-		    if (bestEnemyVal >= WINNING) {
-			break; // small optimization
-		    }
-		}
+	int r;
+	int depth = 0;
+	while (!field.isFull() && depth < barrier) {
+	    currentPlayer = 3 - currentPlayer; // switch players
+	    r = rand.nextInt(FiarField.COLS); // choose random column
+	    while (!field.isValidMove(r)) {
+		r = rand.nextInt(FiarField.COLS);
 	    }
+	    field.addDisc(r, currentPlayer);
+	    if (field.hasWon()) { // check winning
+		return currentPlayer;
+	    }
+	    depth++;
 	}
-
-	final int ourValue = -bestEnemyVal; // our goal is opposed to that of the opponent
-	roundMemory.put(newFieldString, ourValue);
-	return ourValue * branch;
+	return -1; // draw game, or depth reached
     }
 
     /**
@@ -175,23 +133,22 @@ public class BotStarter {
      */
     public static void main(String[] args) {
 	// Testing code for new field methods
-	// final Field f = new Field(7, 6);
+	// final FiarField f = new FiarField();
 	//
 	// f.addDisc(1, 1);
-	// f.addDisc(1, 1);
-	// f.addDisc(1, 1);
+	//
 	// f.addDisc(2, 1);
 	// f.addDisc(2, 1);
+	//
 	// f.addDisc(3, 1);
-	// f.addDisc(4, 1);
+	// f.addDisc(3, 1);
+	// f.addDisc(3, 1);
 	//
 	// for (int i = 0; i < 5; i++) {
 	// f.addDisc(i, 2);
-	// }
-	//
-	// System.out.println("Player 1 has 4iar: " + f.hasFourInARow(1));
-	// System.out.println("Player 2 has 4iar: " + f.hasFourInARow(2));
 	// System.out.println(f.toString());
+	// System.out.println(f.hasWon());
+	// }
 
 	parser = new BotParser(new BotStarter());
 	parser.run();

@@ -40,109 +40,6 @@ public class Field {
 	clearBoard();
     }
 
-    public boolean hasFourInARow(final int player) {
-	if (hasFourHorizontal(player, 4) >= 0) {
-	    return true;
-	}
-	if (hasFourVertical(player, 4) >= 0) {
-	    return true;
-	}
-	if (hasFourDiagonal(player, 4)) {
-	    // warning: putting this one first may have negative impact on performance
-	    return true;
-	}
-
-	return false;
-    }
-
-    public int hasFourVertical(final int player, final int n) {
-	for (int x = 0; x < mCols; x++) {
-	    int count = 0;
-	    for (int y = 0; y < mRows; y++) {
-		if (mBoard[x][y] == player) {
-		    count++;
-		    if (count >= n) {
-			return x;
-		    }
-		} else {
-		    count = 0;
-		}
-	    }
-	}
-	return -1;
-    }
-
-    public int hasFourHorizontal(final int player, final int n) {
-	for (int y = 0; y < mRows; y++) {
-	    int count = 0;
-	    for (int x = 0; x < mCols; x++) {
-		if (mBoard[x][y] == player) {
-		    count++;
-		    if (count >= n) {
-			return y;
-		    }
-		} else {
-		    count = 0;
-		}
-	    }
-	}
-	return -1;
-    }
-
-    public boolean hasFourDiagonal(final int player, final int n) {
-
-	// check one diagonal \\
-	for (int i = 0; i <= mCols - n; i++) {
-	    if (checkNWSEDiagonal(player, i, 0, n))
-		return true;
-	}
-	for (int j = 1; j <= mRows - n; j++) {
-	    if (checkNWSEDiagonal(player, 0, j, n))
-		return true;
-	}
-
-	// check other diagonal //
-	for (int i = 0; i <= mCols - n; i++) {
-	    if (checkNESWDiagonal(player, -i, 0, n))
-		return true;
-	}
-	for (int j = 1; j <= mRows - n; j++) {
-	    if (checkNESWDiagonal(player, 0, j, n))
-		return true;
-	}
-	return false;
-    }
-
-    private boolean checkNWSEDiagonal(final int player, final int i, final int j, final int n) {
-	int count = 0;
-	for (int x = i, y = j; x < mCols && y < mRows; x++, y++) {
-	    if (mBoard[x][y] == player) {
-		count++;
-		if (count >= n) {
-		    return true;
-		}
-	    } else {
-		count = 0;
-	    }
-	}
-	return false;
-    }
-
-    private boolean checkNESWDiagonal(final int player, final int i, final int j, final int n) {
-	int count = 0;
-	for (int x = (mCols - 1) + i, y = j; x >= 0 && y < mRows; x--, y++) {
-	    if (mBoard[x][y] == player) {
-		count++;
-		if (count >= n) {
-		    return true;
-		}
-	    } else {
-		count = 0;
-	    }
-	}
-	return false;
-    }
-
     /**
      * Sets the number of columns (this clears the board)
      * 
@@ -296,7 +193,7 @@ public class Field {
 	}
 	return r;
     }
-    
+
     public String toPrettyString() {
 	String r = " ";
 	int counter = 0;
@@ -308,7 +205,7 @@ public class Field {
 		r += mBoard[x][y];
 		counter++;
 	    }
-	   r += '\n'; 
+	    r += '\n';
 	}
 	return r;
     }
