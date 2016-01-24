@@ -19,8 +19,6 @@ package bot;
 
 import java.util.Random;
 
-import org.omg.CORBA.INTERNAL;
-
 /**
  * BotStarter class
  * 
@@ -34,7 +32,8 @@ public class BotStarter {
     private static BotParser parser;
     public final Random rand = new Random();
     public final Rating[] colRatings = new Rating[FiarField.COLS];
-    public final int MAX_BRANCH = 10; // keep under 8 to prevent timeouts
+    public final int MAX_BRANCH = 42; // 42 = no limit
+    public final long MAX_TIME = 600; // in ms, 500 is what you get per round
     private Field field;
 
     public BotStarter() {
@@ -77,7 +76,7 @@ public class BotStarter {
 	long timeSpent = 0;
 	long count = 0;
 
-	while (timeSpent < 500) {
+	while (timeSpent < MAX_TIME) {
 	    for (int x = 0; x < FiarField.COLS; x++) {
 		tmpField.init(fiarField.getCells());
 		if (fiarField.isValidMove(x)) { // only consider valid moves
@@ -98,7 +97,7 @@ public class BotStarter {
 
 	System.err.println("Played " + count + " times in " + timeSpent + "ms");
 	int bestCol = 0;
-	int bestVal = Integer.MIN_VALUE;
+	float bestVal = Integer.MIN_VALUE;
 	for (int x = 0; x < FiarField.COLS; x++) {
 	    if (fiarField.isValidMove(x)) { // only consider valid moves
 		System.err.println(x + " \t" + colRatings[x].getValue() + " \t" + colRatings[x].toString());
