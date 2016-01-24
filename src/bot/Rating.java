@@ -11,14 +11,22 @@ public class Rating {
 	draws = 0;
     }
 
-    public long getValue() {
-	final long val = (4 * wins) - (4 * losses)  + draws ;
-	return val;
+    public int getValue() {
+	final float winRate = (float) wins / (wins + losses + 1);
+	final float drawRate = (float) (wins + draws) / (wins + draws + losses);
+
+	float value = 5 * winRate;
+	value += drawRate;
+
+	return (int) (1000 * value);
     }
 
     @Override
     public String toString() {
-	return "Rating [wins=" + wins + ", losses=" + losses + ", draws=" + draws + "]";
+	final float winRate = (float) wins / (wins + losses + 1);
+	final float drawRate = (float) (wins + draws) / (wins + draws + losses);
+
+	return String.format("%6d wins, %6d draws, %6d losses \t(%.3f rate1, %.3f rate2)", wins, draws, losses, winRate, drawRate);
     }
 
 }

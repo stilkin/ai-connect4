@@ -18,9 +18,13 @@ public class FiarField {
      * @param field
      */
     public void init(final int[][] field) {
+	totalCoins = 0;
 	for (int x = 0; x < COLS; x++) {
 	    for (int y = 0; y < ROWS; y++) {
 		cells[x][y] = field[x][y];
+		if(cells[x][y] != 0) {
+		    totalCoins++;
+		}
 	    }
 	}
     }
@@ -179,6 +183,7 @@ public class FiarField {
 	lastCol = -1;
 	lastRow = -1;
 	lastPlayer = -1;
+	totalCoins = 0;
     }
 
     public boolean isFull() {
