@@ -82,12 +82,12 @@ public class BotStarter {
 		if (fiarField.isValidMove(x)) { // only consider valid moves
 		    tmpField.addDisc(x, BotParser.myBotId);
 		    result = playGame(tmpField, BotParser.myBotId, MAX_BRANCH);
-		    if (result == BotParser.myBotId) {
-			colRatings[x].wins++;
-		    } else if (result == -1) {
+		    if (result > 0) { // we win
+			colRatings[x].wins += result;
+		    } else if (result == 0) { // draw
 			colRatings[x].draws++;
-		    } else {
-			colRatings[x].losses++;
+		    } else { // enemy win
+			colRatings[x].losses -= result;
 		    }
 		}
 	    }
@@ -113,26 +113,33 @@ public class BotStarter {
     }
 
     private int playGame(final FiarField field, final int player, final int barrier) {
+	int depth = barrier;
 	int currentPlayer = player;
+	int r;
+
 	if (field.hasWon()) {
-	    return currentPlayer;
+	    return depth;
 	}
 
-	int r;
-	int depth = 0;
-	while (!field.isFull() && depth < barrier) {
+	while (!field.isFull() && depth > 0) {
 	    currentPlayer = 3 - currentPlayer; // switch players
+
 	    r = rand.nextInt(FiarField.COLS); // choose random column
 	    while (!field.isValidMove(r)) {
 		r = rand.nextInt(FiarField.COLS);
 	    }
+
 	    field.addDisc(r, currentPlayer);
 	    if (field.hasWon()) { // check winning
-		return currentPlayer;
+		if (currentPlayer == player) { // we win
+		    return (1 + depth);
+		} else { // enemy win
+		    return -(1 + depth);
+		}
 	    }
-	    depth++;
+	    depth--;
 	}
-	return -1; // draw game, or depth reached
+	return 0; // draw game, or depth reached
     }
 
     /**
