@@ -28,16 +28,21 @@ package bot;
 
 public class Field {
     public static final int ERR = 9999;
+    private String boardString;
     private int[][] mBoard;
     private int mCols = 0, mRows = 0;
     private String mLastError = "";
     public int mLastColumn = 0;
 
-    public Field(int columns, int rows) {
+    public Field(final int columns, final int rows) {
 	mBoard = new int[columns][rows];
 	mCols = columns;
 	mRows = rows;
 	clearBoard();
+    }
+    
+    public void resetToInitialRoundState(){
+	this.parseFromString(boardString);
     }
 
     /**
@@ -46,7 +51,7 @@ public class Field {
      * @param args
      *            : int cols
      */
-    public void setColumns(int cols) {
+    public void setColumns(final int cols) {
 	mCols = cols;
 	mBoard = new int[mCols][mRows];
     }
@@ -57,7 +62,7 @@ public class Field {
      * @param args
      *            : int rows
      */
-    public void setRows(int rows) {
+    public void setRows(final int rows) {
 	mRows = rows;
 	mBoard = new int[mCols][mRows];
     }
@@ -80,7 +85,7 @@ public class Field {
      *            : command line arguments passed on running of application
      * @return : true if disc fits, otherwise false
      */
-    public Boolean addDisc(int column, int disc) {
+    public Boolean addDisc(final int column, final int disc) {
 	mLastError = "";
 	if (isColumnWithinBounds(column)) {
 	    for (int y = mRows - 1; y >= 0; y--) { // from bottom column up ??
@@ -97,7 +102,7 @@ public class Field {
 	return false;
     }
 
-    public Boolean removeDisc(int column) {
+    public Boolean removeDisc(final int column) {
 	if (isColumnWithinBounds(column)) {
 	    for (int y = 0; y < mRows; y++) { // from top column down ??
 		if (mBoard[column][y] != 0) {
@@ -119,9 +124,9 @@ public class Field {
      * @param String
      *            :
      */
-    public void parseFromString(String s) {
-	s = s.replace(';', ',');
-	String[] r = s.split(",");
+    public void parseFromString(final String s) {
+	boardString = s.replace(';', ',');
+	final String[] r = boardString.split(",");
 	int counter = 0;
 	for (int y = 0; y < mRows; y++) {
 	    for (int x = 0; x < mCols; x++) {
@@ -138,7 +143,7 @@ public class Field {
      *            : int column, int row
      * @return : int
      */
-    public int getDisc(int column, int row) {
+    public int getDisc(final int column, final int row) {
 	if (checkBounds(row, column))
 	    return mBoard[column][row];
 	else
@@ -152,7 +157,7 @@ public class Field {
      *            : int column
      * @return : Boolean
      */
-    public Boolean isValidMove(int column) {
+    public Boolean isValidMove(final int column) {
 	if (isColumnWithinBounds(column)) {
 	    return (mBoard[column][0] == 0);
 	} else {
@@ -229,7 +234,7 @@ public class Field {
      * 
      * @return : Returns true when given column is full, otherwise returns false.
      */
-    public boolean isColumnFull(int column) {
+    public boolean isColumnFull(final int column) {
 	if (isColumnWithinBounds(column))
 	    return (mBoard[column][0] != 0);
 	else

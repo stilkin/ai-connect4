@@ -53,6 +53,7 @@ public class BotStarter {
      * @return The column where the turn was made.
      */
     public int makeTurn() {
+
 	System.err.println("Round: " + BotParser.round);
 	final FiarField fiarField = new FiarField();
 
@@ -64,6 +65,7 @@ public class BotStarter {
 		    fiarField.addDisc(x, disc);
 		}
 	    }
+
 	}
 	System.err.println(fiarField);
 
