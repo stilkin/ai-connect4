@@ -11,11 +11,11 @@ public class GameResult {
 
     public GameResult() {}
 
-    public GameResult(int player, int result, int depth) {
+    public GameResult(final int player, final int result, final int depth) {
 	setState(player, result, depth);
     }
-    
-    public void setState(int player, int result, int depth) {
+
+    public void setState(final int player, final int result, final int depth) {
 	this.player = player;
 	this.result = result;
 	this.depth = depth;
