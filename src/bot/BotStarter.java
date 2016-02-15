@@ -29,12 +29,14 @@ import java.util.Random;
  */
 
 public class BotStarter {
+    public static final int MAX_BRANCH = 42; // 42 = no limit
+    public static final long MAX_TIME = 600; // in ms, 500 is what you get per round
+    public static final float DEFENSIVE_PCT = 0.5f;
     private static BotParser parser;
     private final GameResult prefabGameResult = new GameResult();
     public final Random rand = new Random();
     public final GameRating[] colRatings = new GameRating[FiarField.COLS];
-    public final int MAX_BRANCH = 42; // 42 = no limit
-    public final long MAX_TIME = 600; // in ms, 500 is what you get per round
+
     private Field field;
 
     public BotStarter() {
@@ -78,11 +80,13 @@ public class BotStarter {
 	final long start = System.currentTimeMillis();
 	long timeSpent = 0;
 	long count = 0;
+	final int enemyId = 3 - BotParser.myBotId;
 
+	// play the Monte Carlo game
 	while (timeSpent < MAX_TIME) {
 	    for (int x = 0; x < FiarField.COLS; x++) {
 		tmpField.init(fiarField.getCells());
-		if (fiarField.isValidMove(x)) { // only consider valid moves
+		if (tmpField.isValidMove(x)) { // only consider valid moves
 		    tmpField.addDisc(x, BotParser.myBotId);
 		    gameResult = playGame(tmpField, BotParser.myBotId, MAX_BRANCH);
 		    if (gameResult.result == GameResult.WIN) {
@@ -94,11 +98,11 @@ public class BotStarter {
 		    } else if (gameResult.result == GameResult.DRAW) { // draw
 			colRatings[x].draws += 1;
 		    } else { // this will never happen
-//			if (gameResult.player == BotParser.myBotId) { // we lose
-//			    colRatings[x].losses += 1;
-//			} else { // enemy loss
-//			    colRatings[x].wins -= 1;
-//			}
+			if (gameResult.player == BotParser.myBotId) { // we lose
+			    colRatings[x].losses += 1;
+			} else { // enemy loss
+			    colRatings[x].wins -= 1;
+			}
 		    }
 		}
 	    }
@@ -107,16 +111,37 @@ public class BotStarter {
 	}
 
 	System.err.println("Played " + count + " times in " + timeSpent + "ms");
-	int bestCol = 0;
-	float bestVal = Integer.MIN_VALUE;
 	for (int x = 0; x < FiarField.COLS; x++) {
 	    if (fiarField.isValidMove(x)) { // only consider valid moves
-		System.err.println(x + " \t" + colRatings[x].getValue() + " \t" + colRatings[x].toString());
-		if (colRatings[x].getValue() > bestVal) {
-		    bestVal = colRatings[x].getValue();
-		    bestCol = x;
+		System.err.println(x + " \t" + colRatings[x].toString());
+	    }
+	}
+
+	final int[] bestCols = new int[2]; // win - draw - loss
+	final long[] bestVals = new long[2];
+	final float[] bestPct = new float[2];
+
+	for (int x = 0; x < FiarField.COLS; x++) {
+	    if (fiarField.isValidMove(x)) { // only consider valid moves
+		if (colRatings[x].wins > bestVals[0]) { // largest win amount
+		    bestVals[0] = colRatings[x].wins;
+		    bestCols[0] = x;
+		    bestPct[0] = colRatings[x].getWinrate();
+		}
+		if (colRatings[x].draws > bestVals[1]) { // largest draw amount
+		    bestVals[1] = colRatings[x].draws;
+		    bestCols[1] = x;
+		    bestPct[1] = colRatings[x].getDrawrate();
 		}
 	    }
+	}
+	
+	int bestCol = 0;
+	
+	if (bestPct[0] > DEFENSIVE_PCT) { // win chance > 50%	    
+	    bestCol = bestCols[0];
+	} else { // we are going to lose -> maximize draw chance
+	    bestCol = bestCols[1];
 	}
 
 	System.err.println("Decided to go for col " + bestCol);
