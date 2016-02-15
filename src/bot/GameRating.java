@@ -22,18 +22,20 @@ public class GameRating {
 	    wins = draws;
 	}
 
+	final long total = wins + draws + losses;
 	// final float value = (float) ((wins + 1) * (draws + 1)) / (wins * draws + losses + 1);
-	final float value = (float) losses / (wins * draws + 1);
-	return (long) (-100000 * value);
+	final float value = ((10 * wins + 1) * (draws + 1) / (float) total);
+	return (long) (10 * value);
     }
 
     @Override
     public String toString() {
-	final float winRate = (float) wins / (wins + losses + 1);
-	final float lossRate = (float) losses / (wins * draws + 1);
-	final float winDrawRate = (float) ((wins + 1) * (draws + 1)) / (wins * draws + losses + 1);
+	final long total = wins + draws + losses;
+	final float winRate = (float) wins / total;
+	final float lossRate = (float) losses / total;
+	final float winDrawRate = ((10 * wins + 1) * (draws + 1) / (float) total);
 
-	return String.format("%6d wins, %6d draws, %6d losses \t(%.3f winrate, %.3f rate2, %.3f lossrate)", wins, draws, losses, winRate, winDrawRate, lossRate);
+	return String.format("%6d wins, %6d draws, %6d losses \t(%.2f w-r, %.2f c-r, %.2f l-r)", wins, draws, losses, winRate, winDrawRate, lossRate);
     }
 
 }
