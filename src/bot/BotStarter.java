@@ -30,15 +30,16 @@ import java.util.Random;
 
 public class BotStarter {
     private static BotParser parser;
+    private final GameResult prefabGameResult = new GameResult();
     public final Random rand = new Random();
-    public final Rating[] colRatings = new Rating[FiarField.COLS];
+    public final GameRating[] colRatings = new GameRating[FiarField.COLS];
     public final int MAX_BRANCH = 42; // 42 = no limit
     public final long MAX_TIME = 600; // in ms, 500 is what you get per round
     private Field field;
 
     public BotStarter() {
 	for (int x = 0; x < colRatings.length; x++) {
-	    colRatings[x] = new Rating();
+	    colRatings[x] = new GameRating();
 	}
     }
 
@@ -70,8 +71,8 @@ public class BotStarter {
 	    colRatings[x].reset();
 	}
 
-	int result;
-	FiarField tmpField = new FiarField();
+	GameResult gameResult;
+	final FiarField tmpField = new FiarField();
 	final long start = System.currentTimeMillis();
 	long timeSpent = 0;
 	long count = 0;
@@ -81,13 +82,21 @@ public class BotStarter {
 		tmpField.init(fiarField.getCells());
 		if (fiarField.isValidMove(x)) { // only consider valid moves
 		    tmpField.addDisc(x, BotParser.myBotId);
-		    result = playGame(tmpField, BotParser.myBotId, MAX_BRANCH);
-		    if (result > 0) { // we win
-			colRatings[x].wins += result;
-		    } else if (result == 0) { // draw
-			colRatings[x].draws++;
-		    } else { // enemy win
-			colRatings[x].losses -= result;
+		    gameResult = playGame(tmpField, BotParser.myBotId, MAX_BRANCH);
+		    if (gameResult.result == GameResult.WIN) {
+			if (gameResult.player == BotParser.myBotId) { // we win
+			    colRatings[x].wins += 1;
+			} else { // enemy win
+			    colRatings[x].losses += 1;
+			}
+		    } else if (gameResult.result == GameResult.DRAW) { // draw
+			colRatings[x].draws += 1;
+		    } else { // this will never happen
+//			if (gameResult.player == BotParser.myBotId) { // we lose
+//			    colRatings[x].losses += 1;
+//			} else { // enemy loss
+//			    colRatings[x].wins -= 1;
+//			}
 		    }
 		}
 	    }
@@ -112,13 +121,14 @@ public class BotStarter {
 	return bestCol;
     }
 
-    private int playGame(final FiarField field, final int player, final int barrier) {
+    private GameResult playGame(final FiarField field, final int player, final int barrier) {
 	int depth = barrier;
 	int currentPlayer = player;
 	int r;
 
 	if (field.hasWon()) {
-	    return depth;
+	    prefabGameResult.setState(currentPlayer, GameResult.WIN, 1 + depth);
+	    return prefabGameResult;
 	}
 
 	while (!field.isFull() && depth > 0) {
@@ -131,15 +141,13 @@ public class BotStarter {
 
 	    field.addDisc(r, currentPlayer);
 	    if (field.hasWon()) { // check winning
-		if (currentPlayer == player) { // we win
-		    return (1 + depth);
-		} else { // enemy win
-		    return -(1 + depth);
-		}
+		prefabGameResult.setState(currentPlayer, GameResult.WIN, 1 + depth);
+		return prefabGameResult;
 	    }
 	    depth--;
 	}
-	return 0; // draw game, or depth reached
+	prefabGameResult.setState(currentPlayer, GameResult.DRAW, depth); // draw game, or depth reached
+	return prefabGameResult;
     }
 
     /**
