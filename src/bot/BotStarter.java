@@ -17,6 +17,8 @@
 
 package bot;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -31,7 +33,8 @@ import java.util.Random;
 public class BotStarter {
     public static final int MAX_BRANCH = 42; // 42 = no limit
     public static final long MAX_TIME = 600; // in ms, 500 is what you get per round
-    public static final float DEFENSIVE_PCT = 0.5f;
+    public static final long MAX_COUNT = 100000;
+    public static final float DEFENSIVE_PCT = 0.35f;
     private static BotParser parser;
     private final GameResult prefabGameResult = new GameResult();
     public final Random rand = new Random();
@@ -80,7 +83,6 @@ public class BotStarter {
 	final long start = System.currentTimeMillis();
 	long timeSpent = 0;
 	long count = 0;
-	final int enemyId = 3 - BotParser.myBotId;
 
 	// play the Monte Carlo game
 	while (timeSpent < MAX_TIME) {
@@ -111,40 +113,101 @@ public class BotStarter {
 	}
 
 	System.err.println("Played " + count + " times in " + timeSpent + "ms");
-	for (int x = 0; x < FiarField.COLS; x++) {
-	    if (fiarField.isValidMove(x)) { // only consider valid moves
-		System.err.println(x + " \t" + colRatings[x].toString());
-	    }
-	}
+	// for (int x = 0; x < FiarField.COLS; x++) {
+	// if (fiarField.isValidMove(x)) { // only consider valid moves
+	// System.err.println(x + " \t" + colRatings[x].toString());
+	// }
+	// }
 
-	final int[] bestCols = new int[2]; // win - draw - loss
-	final long[] bestVals = new long[2];
-	final float[] bestPct = new float[2];
-
-	for (int x = 0; x < FiarField.COLS; x++) {
-	    if (fiarField.isValidMove(x)) { // only consider valid moves
-		if (colRatings[x].wins > bestVals[0]) { // largest win amount
-		    bestVals[0] = colRatings[x].wins;
-		    bestCols[0] = x;
-		    bestPct[0] = colRatings[x].getWinrate();
-		}
-		if (colRatings[x].draws > bestVals[1]) { // largest draw amount
-		    bestVals[1] = colRatings[x].draws;
-		    bestCols[1] = x;
-		    bestPct[1] = colRatings[x].getDrawrate();
-		}
-	    }
-	}
-	
-	int bestCol = 0;
-	
-	if (bestPct[0] > DEFENSIVE_PCT) { // win chance > 50%	    
-	    bestCol = bestCols[0];
-	} else { // we are going to lose -> maximize draw chance
-	    bestCol = bestCols[1];
-	}
+	final int bestCol = getBestCol(fiarField);
 
 	System.err.println("Decided to go for col " + bestCol);
+	return bestCol;
+    }
+
+    private int getBestCol(final FiarField field) {
+	int bestCol = 0;
+
+	// get max for scaling
+	final long[] maxVals = new long[3];
+	for (int x = 0; x < FiarField.COLS; x++) {
+	    if (field.isValidMove(x)) { // only consider valid moves
+		bestCol = x; // random default valid move
+		if (colRatings[x].wins > maxVals[0]) { // largest win amount
+		    maxVals[0] = colRatings[x].wins;
+		}
+		if (colRatings[x].draws > maxVals[1]) { // largest draw amount
+		    maxVals[1] = colRatings[x].draws;
+		}
+		if (colRatings[x].losses > maxVals[2]) { // largest loss amount
+		    maxVals[2] = colRatings[x].losses;
+		}
+	    }
+	}
+
+	// scale to 100
+	System.err.println("Scaled values:");
+	final short[][] scaledPctVals = new short[colRatings.length][4];
+	short minLoss = Byte.MAX_VALUE;
+	for (int x = 0; x < FiarField.COLS; x++) {
+	    if (field.isValidMove(x)) { // only consider valid moves
+		scaledPctVals[x][0] = (short) Math.round(100f * colRatings[x].wins / (maxVals[0] + 1));
+		scaledPctVals[x][1] = (short) Math.round(100f * colRatings[x].draws / (maxVals[1] + 1));
+		scaledPctVals[x][2] = (short) Math.round(100f * colRatings[x].losses / (maxVals[2] + 1));
+		scaledPctVals[x][3] = (short) (scaledPctVals[x][0] + scaledPctVals[x][1]);
+		System.err.printf("%d \t%3d \t%3d \t%3d \t%3d\n", x, scaledPctVals[x][0], scaledPctVals[x][1], scaledPctVals[x][2], scaledPctVals[x][3]);
+		if (scaledPctVals[x][2] < minLoss) {
+		    minLoss = scaledPctVals[x][2];
+		}
+	    }
+	}
+
+	// select a list of the "safest" options
+	final List<Integer> minLossCols = new ArrayList<Integer>();
+	final int MARGIN_PCT = 2; // 5%
+
+	for (int x = 0; x < FiarField.COLS; x++) {
+	    if (field.isValidMove(x)) { // only consider valid moves
+		if (scaledPctVals[x][2] < minLoss + MARGIN_PCT) {
+		    minLossCols.add(x);
+		}
+	    }
+	}
+
+	System.err.println("Min loss cols: " + minLossCols.toString());
+
+	if (minLossCols.size() == 1) {
+	    // only one option
+	    bestCol = minLossCols.get(0);
+	} else if (minLossCols.size() > 1) {
+	    // more than one option in min loss range
+	    int maxWinDraw = 0;
+	    int maxWinDrawCol = 0;
+	    // get col with best win rate of those
+	    for (Integer idx : minLossCols) {
+		if (scaledPctVals[idx][3] > maxWinDraw) {
+		    maxWinDraw = scaledPctVals[idx][3];
+		    maxWinDrawCol = idx;
+		}
+	    }
+	    // TODO: what if these are the same?
+	    bestCol = maxWinDrawCol;
+	} else { // list is empty
+	    System.err.println("No clear options 0_o");
+	    int maxWinDraw = 0;
+	    int maxWinDrawCol = 0;
+	    // get col with best win rate of those
+	    for (int idx = 0; idx < FiarField.COLS; idx++) {
+		if (field.isValidMove(idx)) { // only consider valid moves
+		    if (scaledPctVals[idx][3] > maxWinDraw) {
+			maxWinDraw = scaledPctVals[idx][3];
+			maxWinDrawCol = idx;
+		    }
+		}
+	    }
+	    bestCol = maxWinDrawCol;
+	}
+
 	return bestCol;
     }
 

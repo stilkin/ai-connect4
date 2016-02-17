@@ -12,21 +12,22 @@ public class GameRating {
     }
 
     public float getWinrate() {
-	final long total = wins + draws + losses;
-	final float rate = (float) wins / total;
+	final float rate = (float) wins / getTotal();
 	return rate;
     }
 
     public float getLossrate() {
-	final long total = wins + draws + losses;
-	final float rate = (float) losses / total;
+	final float rate = (float) losses / getTotal();
 	return rate;
     }
 
     public float getDrawrate() {
-	final long total = wins + draws + losses;
-	final float rate = (float) draws / total;
+	final float rate = (float) draws / getTotal();
 	return rate;
+    }
+
+    private long getTotal() {
+	return (wins + draws + losses);
     }
 
     @Override

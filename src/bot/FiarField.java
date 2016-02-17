@@ -196,7 +196,7 @@ public class FiarField {
 
     @Override
     public String toString() {
-	String prettyStr = "";
+	String prettyStr = "|0|1|2|3|4|5|6|\n";
 	for (int y = 0; y < ROWS; y++) {
 	    for (int x = 0; x < COLS; x++) {
 		prettyStr += " " + cells[x][y];
